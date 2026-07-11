@@ -1,54 +1,54 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-contract TimeLockedVault {
+contract PersonalVault {
     address public owner;
     uint256 public unlockTime;
 
     event Deposit(address indexed sender, uint256 amount);
     event Withdraw(address indexed owner, uint256 amount);
 
-    // Modifier untuk membatasi akses hanya untuk owner
+    // Modifier untuk membatasi akses hanya bagi pemilik kontrak (Owner)
     modifier onlyOwner() {
-        require(msg.sender == owner, "Hanya pemilik yang dapat memanggil fungsi ini");
+        require(msg.sender == owner, "Caller is not the owner");
         _;
     }
 
-    // Constructor memvalidasi bahwa _unlockTime harus di masa depan
+    // Constructor memvalidasi bahwa _unlockTime wajib di masa depan
     constructor(uint256 _unlockTime) payable {
-        require(_unlockTime > block.timestamp, "Waktu buka kunci harus di masa depan");
+        require(_unlockTime > block.timestamp, "Unlock time must be in the future");
         
         owner = msg.sender;
         unlockTime = _unlockTime;
     }
 
-    // Fungsi untuk menerima deposit Ether
+    // Fungsi receive untuk menerima Ether langsung
     receive() external payable {
         emit Deposit(msg.sender, msg.value);
     }
 
     // Fungsi deposit manual
     function deposit() external payable {
-        require(msg.value > 0, "Jumlah deposit harus lebih dari 0");
+        require(msg.value > 0, "Deposit amount must be greater than 0");
         emit Deposit(msg.sender, msg.value);
     }
 
-    // Fungsi withdraw dengan validasi waktu dan pemegang hak
+    // Fungsi withdraw lengkap dengan pengecekan waktu dan hak akses
     function withdraw() external onlyOwner {
-        require(block.timestamp >= unlockTime, "Vault masih terkunci");
+        require(block.timestamp >= unlockTime, "Vault is still locked");
         
         uint256 balance = address(this).balance;
-        require(balance > 0, "Tidak ada saldo untuk ditarik");
+        require(balance > 0, "No funds to withdraw");
 
-        // Mentransfer saldo ke owner
+        // Mentransfer seluruh isi saldo vault ke owner
         (bool success, ) = owner.call{value: balance}("");
-        require(success, "Gagal mengirim Ether");
+        require(success, "Transfer failed");
 
         emit Withdraw(owner, balance);
     }
 
-    // Fungsi helper untuk mengecek sisa waktu terkunci
-    function getRemaingTime() external view returns (uint256) {
+    // Helper untuk mengecek sisa waktu penguncian
+    function getRemainingTime() external view returns (uint256) {
         if (block.timestamp >= unlockTime) {
             return 0;
         }
